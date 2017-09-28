@@ -13,7 +13,9 @@ package main
 import (
 	"fmt"
 	log "github.com/cihub/seelog"
+	"io/ioutil"
 	"os"
+	"strconv"
 	"syscall"
 	"time"
 )
@@ -23,20 +25,46 @@ type BurrowLogger struct {
 }
 
 func createPidFile(filename string) {
-	// Create a PID file, making sure it doesn't already exist
+	// Create a PID file, verifying that Burrow is not already running
 	pidfile, err := os.OpenFile(filename, os.O_EXCL|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Criticalf("Cannot write PID file: %v", err)
-		os.Exit(1)
+		if isProcessRunning(filename) {
+			log.Criticalf("Cannot write PID file: %v", err)
+			os.Exit(1)
+		} else {
+			removePidFile(filename)
+			createPidFile(filename)
+		}
 	}
 	fmt.Fprintf(pidfile, "%v", os.Getpid())
 	pidfile.Close()
 }
 
 func removePidFile(filename string) {
+	log.Warnf("Removing PID file: %s", filename)
 	err := os.Remove(filename)
 	if err != nil {
 		fmt.Printf("Failed to remove PID file: %v\n", err)
+	}
+}
+
+func isProcessRunning(filename string) bool {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return false
+	}
+	pid, err := strconv.Atoi(string(data[:]))
+	if err != nil {
+		log.Criticalf("Cannot parse integer: %s", string(data[:]))
+		os.Exit(1)
+	}
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		log.Infof("No Burrow process exists with PID: %d", proc.Pid)
+		return false
+	} else {
+		log.Criticalf("Burrow already running with PID: %d", proc.Pid)
+		return true
 	}
 }
 
