@@ -32,6 +32,7 @@ func createPidFile(filename string) {
 			log.Criticalf("Cannot write PID file: %v", err)
 			os.Exit(1)
 		} else {
+			pidfile.Close()
 			removePidFile(filename)
 			createPidFile(filename)
 		}
@@ -44,7 +45,7 @@ func removePidFile(filename string) {
 	log.Warnf("Removing PID file: %s", filename)
 	err := os.Remove(filename)
 	if err != nil {
-		fmt.Printf("Failed to remove PID file: %v\n", err)
+		log.Warnf("Failed to remove PID file: %v", err)
 	}
 }
 
@@ -58,12 +59,12 @@ func isProcessRunning(filename string) bool {
 		log.Criticalf("Cannot parse integer: %s", string(data[:]))
 		os.Exit(1)
 	}
-	proc, err := os.FindProcess(pid)
+	finfo, err := os.Stat("/proc/" + string(pid))
 	if err != nil {
-		log.Infof("No Burrow process exists with PID: %d", proc.Pid)
+		log.Infof("No Burrow process exists with PID: %d", pid)
 		return false
 	} else {
-		log.Criticalf("Burrow already running with PID: %d", proc.Pid)
+		log.Criticalf("Burrow already running with PID: %s", finfo.Name)
 		return true
 	}
 }
